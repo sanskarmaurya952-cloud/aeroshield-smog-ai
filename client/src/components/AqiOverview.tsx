@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { AqiData } from '../types';
 import { Wind, AlertTriangle, ShieldCheck, Sun, ArrowUpRight, Clock, HelpCircle, Activity } from 'lucide-react';
 
@@ -8,7 +8,7 @@ interface AqiOverviewProps {
   highContrast: boolean;
 }
 
-export const AqiOverview: React.FC<AqiOverviewProps> = ({ aqiData, onNavigateTab, highContrast }) => {
+const AqiOverviewComponent: React.FC<AqiOverviewProps> = ({ aqiData, onNavigateTab, highContrast }) => {
   if (!aqiData) {
     return (
       <div className="py-20 text-center">
@@ -250,3 +250,6 @@ export const AqiOverview: React.FC<AqiOverviewProps> = ({ aqiData, onNavigateTab
     </div>
   );
 };
+
+export const AqiOverview = memo(AqiOverviewComponent);
+export default AqiOverview;

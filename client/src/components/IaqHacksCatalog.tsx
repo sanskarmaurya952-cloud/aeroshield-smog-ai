@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import type { IaqHack } from '../types';
 import { Wrench, CheckCircle, ChevronDown, ChevronUp, DollarSign, Award, FlaskConical } from 'lucide-react';
 
@@ -6,15 +6,21 @@ interface IaqHacksCatalogProps {
   hacks: IaqHack[];
 }
 
-export const IaqHacksCatalog: React.FC<IaqHacksCatalogProps> = ({ hacks }) => {
+const IaqHacksCatalogComponent: React.FC<IaqHacksCatalogProps> = ({ hacks }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [expandedId, setExpandedId] = useState<string | null>(hacks[0]?.id || null);
 
   const categories = ['All', 'Filtration', 'DIY Moisture & Capture', 'Ventilation', 'Source Control', 'Biophilic', 'Envelope Sealing'];
 
-  const filteredHacks = selectedCategory === 'All'
-    ? hacks
-    : hacks.filter(h => h.category.toLowerCase().includes(selectedCategory.toLowerCase()));
+  // useMemo avoids re-filtering the hacks array on every render; only recomputes
+  // when the `hacks` prop or selected category changes.
+  const filteredHacks = useMemo(
+    () =>
+      selectedCategory === 'All'
+        ? hacks
+        : hacks.filter((h) => h.category.toLowerCase().includes(selectedCategory.toLowerCase())),
+    [hacks, selectedCategory]
+  );
 
   return (
     <div className="space-y-6">
@@ -142,3 +148,11 @@ export const IaqHacksCatalog: React.FC<IaqHacksCatalogProps> = ({ hacks }) => {
     </div>
   );
 };
+
+/**
+ * Wrapped with React.memo — the component receives `hacks` (a stable array
+ * from the parent) and only internal selection state changes on user interaction.
+ * memo prevents unnecessary re-renders triggered by parent tab-switches.
+ */
+export const IaqHacksCatalog = memo(IaqHacksCatalogComponent);
+export default IaqHacksCatalog;

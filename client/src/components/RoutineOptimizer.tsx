@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { RoutinePlan } from '../types';
 import { Clock, ShieldAlert, Sparkles, CheckCircle, Info } from 'lucide-react';
 
@@ -7,7 +7,7 @@ interface RoutineOptimizerProps {
   onNavigateTab: (tab: string) => void;
 }
 
-export const RoutineOptimizer: React.FC<RoutineOptimizerProps> = ({ routine, onNavigateTab }) => {
+const RoutineOptimizerComponent: React.FC<RoutineOptimizerProps> = ({ routine, onNavigateTab }) => {
   if (!routine) {
     return (
       <div className="py-20 text-center text-slate-400">
@@ -135,3 +135,6 @@ export const RoutineOptimizer: React.FC<RoutineOptimizerProps> = ({ routine, onN
     </div>
   );
 };
+
+export const RoutineOptimizer = memo(RoutineOptimizerComponent);
+export default RoutineOptimizer;

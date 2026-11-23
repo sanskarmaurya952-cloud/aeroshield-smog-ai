@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { ImpactMetrics } from '../types';
 import { Award, HeartPulse, Flame, Trees, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
@@ -6,7 +6,7 @@ interface ImpactRadarProps {
   impact: ImpactMetrics | null;
 }
 
-export const ImpactRadar: React.FC<ImpactRadarProps> = ({ impact }) => {
+const ImpactRadarComponent: React.FC<ImpactRadarProps> = ({ impact }) => {
   if (!impact) {
     return (
       <div className="py-20 text-center text-slate-400">
@@ -137,3 +137,11 @@ export const ImpactRadar: React.FC<ImpactRadarProps> = ({ impact }) => {
     </div>
   );
 };
+
+/**
+ * Wrapped with React.memo — this component receives `impact` as a prop and
+ * its output is a pure function of that value. memo prevents re-renders when
+ * a parent's unrelated state changes (e.g. tab navigation in App.tsx).
+ */
+export const ImpactRadar = memo(ImpactRadarComponent);
+export default ImpactRadar;
