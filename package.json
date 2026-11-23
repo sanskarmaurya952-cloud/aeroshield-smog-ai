@@ -1,0 +1,37 @@
+{
+  "name": "aeroshield-smog-ai",
+  "version": "1.0.0",
+  "description": "AeroShield: GenAI-powered winter smog intelligence assistant for families and communities",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"npm run server\" \"npm run client\"",
+    "server": "node server/index.js",
+    "client": "npm run dev --prefix client",
+    "build": "npm run build --prefix client",
+    "start": "node server/index.js",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "genai",
+    "winter-smog",
+    "air-pollution",
+    "clean-air",
+    "iaq",
+    "sustainability",
+    "community-health"
+  ],
+  "author": "AeroShield Team",
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^0.1.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "supertest": "^7.0.0",
+    "vitest": "^3.0.7"
+  }
+}

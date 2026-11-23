@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-aqi-good: #10b981;
+    --color-aqi-moderate: #f59e0b;
+    --color-aqi-unhealthy-sensitive: #f97316;
+    --color-aqi-unhealthy: #ef4444;
+    --color-aqi-very-unhealthy: #8b5cf6;
+    --color-aqi-hazardous: #7f1d1d;
+  }
+
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased min-h-screen font-sans;
+    margin: 0;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
