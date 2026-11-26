@@ -7,6 +7,7 @@ import { IaqHacksCatalog } from './components/IaqHacksCatalog';
 import { ImpactRadar } from './components/ImpactRadar';
 import { CommunityHub } from './components/CommunityHub';
 import { AiCopilotChat } from './components/AiCopilotChat';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import type { HouseholdProfile, AqiData, VulnerabilityAnalysis, RoutinePlan, IaqHack, SustainableAlternative, ImpactMetrics } from './types';
 import { fetchAqi, fetchRecommendations, analyzeProfile } from './services/api';
 import { AlertTriangle, ShieldCheck } from 'lucide-react';
@@ -157,47 +158,61 @@ export const App: React.FC = () => {
         ) : (
           <div className="transition-all duration-300">
             {activeTab === 'dashboard' && (
-              <AqiOverview
-                aqiData={aqiData}
-                onNavigateTab={(t) => setActiveTab(t)}
-                highContrast={highContrast}
-              />
+              <ErrorBoundary>
+                <AqiOverview
+                  aqiData={aqiData}
+                  onNavigateTab={(t) => setActiveTab(t)}
+                  highContrast={highContrast}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'wizard' && (
-              <HouseholdWizard
-                profile={profile}
-                onChangeProfile={handleProfileChange}
-                vulnerability={vulnerability}
-                onGeneratePlan={handleGeneratePlan}
-              />
+              <ErrorBoundary>
+                <HouseholdWizard
+                  profile={profile}
+                  onChangeProfile={handleProfileChange}
+                  vulnerability={vulnerability}
+                  onGeneratePlan={handleGeneratePlan}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'routine' && (
-              <RoutineOptimizer
-                routine={routine}
-                onNavigateTab={(t) => setActiveTab(t)}
-              />
+              <ErrorBoundary>
+                <RoutineOptimizer
+                  routine={routine}
+                  onNavigateTab={(t) => setActiveTab(t)}
+                />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'iaq' && (
-              <IaqHacksCatalog hacks={iaqHacks} />
+              <ErrorBoundary>
+                <IaqHacksCatalog hacks={iaqHacks} />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'impact' && (
-              <ImpactRadar impact={impact} />
+              <ErrorBoundary>
+                <ImpactRadar impact={impact} />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'community' && (
-              <CommunityHub alternatives={alternatives} />
+              <ErrorBoundary>
+                <CommunityHub alternatives={alternatives} />
+              </ErrorBoundary>
             )}
 
             {activeTab === 'copilot' && (
-              <AiCopilotChat
-                profile={profile}
-                aqiData={aqiData}
-                currentCity={currentCity}
-              />
+              <ErrorBoundary>
+                <AiCopilotChat
+                  profile={profile}
+                  aqiData={aqiData}
+                  currentCity={currentCity}
+                />
+              </ErrorBoundary>
             )}
           </div>
         )}
