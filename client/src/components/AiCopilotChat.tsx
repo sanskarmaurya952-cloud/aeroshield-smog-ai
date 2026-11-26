@@ -18,7 +18,7 @@ const PRESET_QUERIES = [
 ];
 
 export const AiCopilotChat: React.FC<AiCopilotChatProps> = ({ profile, aqiData, currentCity }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: 'welcome',
       role: 'assistant',
@@ -32,7 +32,7 @@ Ask me anything about:
 - **Low-cost DIY indoor air filtration hacks**
 - **Pediatric and asthmatic emergency protection**
 - **Thermal inversion ventilation windows**`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: 'Just now',
       source: 'AeroShield Clean Air Intelligence'
     }
   ]);
@@ -81,7 +81,8 @@ Ask me anything about:
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      console.warn('Chat interaction error:', err);
       const errorMsg: ChatMessage = {
         id: `err-${Date.now()}`,
         role: 'assistant',

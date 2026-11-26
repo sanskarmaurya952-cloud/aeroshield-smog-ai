@@ -2,96 +2,95 @@
  * @file index.js
  * @description AeroShield Express application bootstrap.
  *
- *   Middleware stack (in registration order):
- *   1. compression        — gzip all responses → ~70% bandwidth reduction
- *   2. cors               — allow cross-origin requests in development
- *   3. express-rate-limit — IP-based sliding window for /api routes
- *   4. express.json       — parse JSON request bodies (10 kb limit)
- *   5. API routes         — /api/*
- *   6. Static assets      — client/dist (immutable, long-lived cache headers)
- *   7. SPA fallback       — serve index.html for all non-API GET routes
- *   8. Central error handler — structured JSON error responses
+ * Middleware pipeline (in registration order):
+ * 1. helmet           — sets secure HTTP defense headers
+ * 2. compression      — gzip compression for ~70% network payload reduction
+ * 3. cors             — cross-origin resource sharing configuration
+ * 4. rateLimit        — sliding-window DDoS & API brute-force protection
+ * 5. express.json     — payload parsing with 10kb ceiling
+ * 6. requestLogger    — structured performance & request tracing
+ * 7. apiRoutes        — modular REST API endpoints under /api/*
+ * 8. staticAssets     — pre-compiled client assets with immutable caching
+ * 9. spaFallback      — SPA routing support for client-side navigation
+ * 10. errorHandler    — centralized typed error handler
  */
 
-import express                   from 'express';
-import cors                      from 'cors';
-import dotenv                    from 'dotenv';
-import path                      from 'path';
-import { fileURLToPath }         from 'url';
-import compression               from 'compression';
-import { rateLimit }             from 'express-rate-limit';
-import apiRoutes                 from './routes/api.js';
-import { AppError }              from './utils/errors.js';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import compression from 'compression';
+import { rateLimit } from 'express-rate-limit';
+import apiRoutes from './routes/api.js';
+import { AppError } from './utils/errors.js';
+import { env } from './config/env.js';
+import { logger } from './utils/logger.js';
 import {
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX_REQUESTS,
   STATIC_ASSET_MAX_AGE_SECONDS,
 } from './config/constants.js';
 
-dotenv.config();
-
-// ─── Environment Validation ────────────────────────────────────────────────────
-if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_api_key_here') {
-  console.info(
-    '[AeroShield] GEMINI_API_KEY not set — Expert Reasoning Engine (autonomous fallback) will be used.'
-  );
-}
-
-// ─── App & Constants ───────────────────────────────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
-const app  = express();
-const PORT = Number(process.env.PORT) || 5000;
+const app = express();
+const PORT = env.PORT;
 
-// ─── 1. Compression ───────────────────────────────────────────────────────────
-// Gzip all compressible responses (JSON, HTML, CSS, JS, SVG).
-// Skips already-compressed content types (images, video, etc.).
+// ─── 1. Security Defense Headers ───────────────────────────────────────────────
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Allows flexible SPA styling, SVGs, and inline icons
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// ─── 2. Response Compression ──────────────────────────────────────────────────
 app.use(compression());
 
-// ─── 2. CORS ──────────────────────────────────────────────────────────────────
+// ─── 3. CORS Configuration ────────────────────────────────────────────────────
 app.use(cors());
 
-// ─── 3. API Rate Limiting ─────────────────────────────────────────────────────
+// ─── 4. API Rate Limiting ─────────────────────────────────────────────────────
 const apiLimiter = rateLimit({
-  windowMs:         RATE_LIMIT_WINDOW_MS,
-  max:              RATE_LIMIT_MAX_REQUESTS,
-  standardHeaders:  true,  // Return rate-limit info in `RateLimit-*` headers
-  legacyHeaders:    false,
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: RATE_LIMIT_MAX_REQUESTS,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: {
     error: 'Too many requests from this IP. Please slow down and try again shortly.',
-    code:  'RATE_LIMIT_EXCEEDED',
+    code: 'RATE_LIMIT_EXCEEDED',
   },
 });
 
 app.use('/api', apiLimiter);
 
-// ─── 4. Body Parsing ──────────────────────────────────────────────────────────
+// ─── 5. Body Parsing with Safe Ceiling ─────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
 
-// ─── 5. Request Logger (Lightweight) ─────────────────────────────────────────
-if (process.env.NODE_ENV !== 'test') {
-  app.use((req, _res, next) => {
+// ─── 6. Structured Request Logging ───────────────────────────────────────────
+if (!env.isTest) {
+  app.use((req, res, next) => {
     const start = Date.now();
-    _res.on('finish', () => {
+    res.on('finish', () => {
       const ms = Date.now() - start;
-      console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} → ${_res.statusCode} (${ms}ms)`);
+      logger.info('HTTP', `${req.method} ${req.path} → ${res.statusCode} (${ms}ms)`);
     });
     next();
   });
 }
 
-// ─── 6. API Routes ────────────────────────────────────────────────────────────
+// ─── 7. Modular API Routes ────────────────────────────────────────────────────
 app.use('/api', apiRoutes);
 
-// ─── 7. Static Frontend Assets ────────────────────────────────────────────────
+// ─── 8. Static Client Asset Delivery ──────────────────────────────────────────
 const clientBuildPath = path.join(__dirname, '../client/dist');
 
 app.use(
   express.static(clientBuildPath, {
     maxAge: `${STATIC_ASSET_MAX_AGE_SECONDS}s`,
     immutable: true,
-    // Do NOT cache index.html — it must always be fresh for SPA routing
     setHeaders(res, filePath) {
       if (filePath.endsWith('index.html')) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -100,7 +99,7 @@ app.use(
   })
 );
 
-// ─── 8. SPA Fallback ──────────────────────────────────────────────────────────
+// ─── 9. Single Page Application (SPA) Fallback ────────────────────────────────
 app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
     return next();
@@ -108,12 +107,13 @@ app.use((req, res, next) => {
 
   res.sendFile(path.join(clientBuildPath, 'index.html'), (err) => {
     if (!err) return;
-    // Client build not present (dev mode without `npm run build`)
+    // Development mode fallback when client has not been pre-built
     res.status(200).send(`
       <!DOCTYPE html>
       <html lang="en">
-      <head><title>AeroShield API</title>
-      <style>body{font-family:sans-serif;padding:2rem;background:#090d16;color:#f1f5f9;}</style>
+      <head>
+        <title>AeroShield API</title>
+        <style>body{font-family:sans-serif;padding:2rem;background:#090d16;color:#f1f5f9;}</style>
       </head>
       <body>
         <h1>🛡️ AeroShield Clean Air API Server</h1>
@@ -127,34 +127,49 @@ app.use((req, res, next) => {
   });
 });
 
-// ─── 9. Central Error Handler ─────────────────────────────────────────────────
-// Must have exactly 4 parameters so Express recognises it as an error handler.
+// ─── 10. Centralized Error Handler ────────────────────────────────────────────
+// Express requires exactly 4 parameters to bind error-handling middleware
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, _next) => {
-  // Operational errors (ValidationError, NotFoundError, etc.) are logged at warn level.
-  // Programming errors (bugs) are logged at error level with full stack trace.
   if (err instanceof AppError && err.isOperational) {
-    console.warn(`[AeroShield] Operational error: ${err.code} — ${err.message}`);
+    logger.warn('AeroShield', `Operational error [${err.code}]: ${err.message}`);
     return res.status(err.statusCode).json(err.toJSON());
   }
 
-  console.error('[AeroShield] Unexpected error:', err);
+  logger.error('AeroShield', 'Unhandled application exception:', err);
   return res.status(500).json({
-    error:      'Internal Server Error',
-    code:       'INTERNAL_ERROR',
+    error: 'Internal Server Error',
+    code: 'INTERNAL_ERROR',
     statusCode: 500,
   });
 });
 
-// ─── Export & Boot ────────────────────────────────────────────────────────────
 export default app;
 
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log('=========================================');
-    console.log('🛡️  AeroShield Smog & Air Intelligence AI');
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`⚡ API ready at http://localhost:${PORT}/api/health`);
-    console.log('=========================================');
+// ─── Server Startup & Graceful Shutdown ───────────────────────────────────────
+if (!env.isTest) {
+  const server = app.listen(PORT, () => {
+    logger.info('AeroShield', '=========================================');
+    logger.info('AeroShield', '🛡️  AeroShield Smog & Air Intelligence AI');
+    logger.info('AeroShield', `🚀 Server running on http://localhost:${PORT}`);
+    logger.info('AeroShield', `⚡ API ready at http://localhost:${PORT}/api/health`);
+    logger.info('AeroShield', '=========================================');
   });
+
+  const handleShutdown = (signal) => {
+    logger.info('AeroShield', `Received ${signal}. Shutting down HTTP server gracefully...`);
+    server.close(() => {
+      logger.info('AeroShield', 'HTTP server closed. Exiting process.');
+      process.exit(0);
+    });
+
+    // Force close if graceful shutdown stalls
+    setTimeout(() => {
+      logger.error('AeroShield', 'Forced shutdown after timeout.');
+      process.exit(1);
+    }, 10000).unref();
+  };
+
+  process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+  process.on('SIGINT', () => handleShutdown('SIGINT'));
 }

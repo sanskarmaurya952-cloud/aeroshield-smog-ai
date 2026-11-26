@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Navbar } from './components/Navbar';
 import { AqiOverview } from './components/AqiOverview';
 import { HouseholdWizard } from './components/HouseholdWizard';
@@ -45,7 +45,7 @@ export const App: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Load initial data and recommendations
-  const loadData = async (city: string, prof: HouseholdProfile, showRefreshSpinner = false) => {
+  const loadData = useCallback(async (city: string, prof: HouseholdProfile, showRefreshSpinner = false) => {
     if (showRefreshSpinner) setIsRefreshing(true);
     setErrorMessage(null);
 
@@ -61,18 +61,47 @@ export const App: React.FC = () => {
       setIaqHacks(recs.iaqHacks);
       setAlternatives(recs.sustainableAlternatives);
       setImpact(recs.impactMetrics);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error loading AeroShield intelligence:', err);
       setErrorMessage('Could not connect to AeroShield API server. Running with local fallback data.');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData(currentCity, profile);
-  }, [currentCity]);
+    let isMounted = true;
+    const init = async () => {
+      try {
+        const [aqi, recs] = await Promise.all([
+          fetchAqi(currentCity),
+          fetchRecommendations(profile, currentCity)
+        ]);
+        if (!isMounted) return;
+        setAqiData(aqi);
+        setVulnerability(recs.vulnerability);
+        setRoutine(recs.routine);
+        setIaqHacks(recs.iaqHacks);
+        setAlternatives(recs.sustainableAlternatives);
+        setImpact(recs.impactMetrics);
+      } catch (err: unknown) {
+        if (!isMounted) return;
+        console.error('Error loading AeroShield intelligence:', err);
+        setErrorMessage('Could not connect to AeroShield API server. Running with local fallback data.');
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      }
+    };
+
+    init();
+    return () => {
+      isMounted = false;
+    };
+  }, [currentCity, profile]);
 
   // Profile update handler
   const handleProfileChange = async (updated: Partial<HouseholdProfile>) => {

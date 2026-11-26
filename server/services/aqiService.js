@@ -15,6 +15,7 @@ import {
   AQI_CACHE_TTL_MS,
   AQI_CACHE_MAX_ENTRIES,
 } from '../config/constants.js';
+import { logger } from '../utils/logger.js';
 
 // ─── In-Memory AQI Cache ───────────────────────────────────────────────────────
 /**
@@ -212,7 +213,7 @@ export async function getAqiData(query = 'delhi') {
       return liveResult;
     }
   } catch (err) {
-    console.warn(`[AQI Service] Online lookup for "${query}" failed, using model fallback:`, err.message);
+    logger.warn('AQI Service', `Online lookup for "${query}" failed, using model fallback: ${err.message}`);
   }
 
   // ── Tier 3: Algorithmic Offline Model ──

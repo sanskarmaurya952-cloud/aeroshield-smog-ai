@@ -2,31 +2,31 @@
  * @file geminiService.js
  * @description Google Gemini GenAI assistant with autonomous expert fallback.
  *
- *   Architecture:
- *   1. If GEMINI_API_KEY is present and valid → call Gemini 2.5 Flash
- *   2. On API failure or missing key → route to deterministic expert engine
+ * Architecture:
+ * 1. If GEMINI_API_KEY is present and valid → call Gemini 2.5 Flash
+ * 2. On API failure or missing key → route to deterministic expert engine
  *
- *   The fallback engine ensures the app functions fully offline / without a
- *   key, satisfying the hackathon "autonomous fallback guaranteed" constraint.
+ * The fallback engine ensures the app functions fully offline / without a
+ * key, satisfying the hackathon "autonomous fallback guaranteed" constraint.
  */
 
 import { GoogleGenAI } from '@google/genai';
+import { env } from '../config/env.js';
+import { logger } from '../utils/logger.js';
 
 // ─── Client Initialisation ─────────────────────────────────────────────────────
-const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-
 /** @type {import('@google/genai').GoogleGenAI|null} */
 let aiClient = null;
 
-if (apiKey && apiKey !== 'your_api_key_here') {
+if (env.hasGeminiKey) {
   try {
-    aiClient = new GoogleGenAI({ apiKey });
-    console.log('[Gemini Service] Client initialised successfully.');
+    aiClient = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+    logger.info('Gemini Service', 'Client initialised successfully.');
   } catch (err) {
-    console.warn('[Gemini Service] Initialisation warning:', err.message);
+    logger.warn('Gemini Service', 'Initialisation warning:', err.message);
   }
 } else {
-  console.info('[Gemini Service] No API key detected — expert fallback engine will be used.');
+  logger.info('Gemini Service', 'No API key detected — expert fallback engine will be used.');
 }
 
 // ─── Assistant Response ────────────────────────────────────────────────────────
@@ -34,14 +34,14 @@ if (apiKey && apiKey !== 'your_api_key_here') {
 /**
  * Generate an intelligent, context-aware answer to a user query.
  *
- * The function first attempts to call the Google Gemini API; on failure (or when
- * no API key is configured) it transparently falls back to the deterministic
- * expert reasoning engine — guaranteeing a response in every environment.
+ * First attempts to call the Google Gemini API; on failure (or when no API key
+ * is configured) it transparently falls back to the deterministic expert reasoning
+ * engine — guaranteeing a response in every environment.
  *
  * @param {object}   params
- * @param {string}   params.message                User's question or request.
- * @param {object}   [params.profile={}]           Household profile context.
- * @param {object}   [params.aqiData={}]           Current AQI data context.
+ * @param {string}   params.message                  User's question or request.
+ * @param {object}   [params.profile={}]             Household profile context.
+ * @param {object}   [params.aqiData={}]             Current AQI data context.
  * @param {Array}    [params.conversationHistory=[]] Prior conversation turns.
  * @returns {Promise<{ reply: string, source: string, model: string }>}
  */
@@ -51,16 +51,16 @@ export async function getAssistantResponse({
   aqiData = {},
   conversationHistory = [],
 }) {
-  const currentAqi  = aqiData.current?.aqi  ?? 220;
+  const currentAqi = aqiData.current?.aqi ?? 220;
   const currentPm25 = aqiData.current?.pm25 ?? 150;
-  const cityName    = aqiData.location?.city ?? 'Your Area';
+  const cityName = aqiData.location?.city ?? 'Your Area';
 
   const systemInstruction = buildSystemInstruction(cityName, currentAqi, currentPm25, aqiData, profile);
 
   // ── Try Gemini API ──
-  if (aiClient && apiKey) {
+  if (aiClient && env.hasGeminiKey) {
     try {
-      const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+      const modelName = env.GEMINI_MODEL;
       const prompt = `${systemInstruction}\n\nUser Question: ${message}\n\nPlease provide your expert, personalised recommendation:`;
 
       const response = await aiClient.models.generateContent({
@@ -70,22 +70,22 @@ export async function getAssistantResponse({
 
       if (response?.text) {
         return {
-          reply:  response.text,
+          reply: response.text,
           source: 'Google Gemini 2.5 Flash GenAI Model',
-          model:  modelName,
+          model: modelName,
         };
       }
     } catch (err) {
-      console.warn('[Gemini Service] API call failed, switching to expert engine:', err.message);
+      logger.warn('Gemini Service', 'API call failed, switching to expert engine:', err.message);
     }
   }
 
   // ── Expert Fallback ──
   const fallbackReply = generateExpertFallbackResponse(message, profile, aqiData);
   return {
-    reply:  fallbackReply,
+    reply: fallbackReply,
     source: 'AeroShield Expert Reasoning Engine (Autonomous Fallback)',
-    model:  'aeroshield-inversion-expert-v1',
+    model: 'aeroshield-inversion-expert-v1',
   };
 }
 
@@ -142,17 +142,22 @@ CORE INSTRUCTIONS:
  * @returns {string}  Markdown-formatted expert response.
  */
 function generateExpertFallbackResponse(message, profile, aqiData) {
-  const query      = message.toLowerCase();
-  const currentAqi = aqiData.current?.aqi  ?? 220;
-  const pm25       = aqiData.current?.pm25 ?? 150;
-  const city       = aqiData.location?.city ?? 'your city';
+  const query = message.toLowerCase();
+  const currentAqi = aqiData.current?.aqi ?? 220;
+  const pm25 = aqiData.current?.pm25 ?? 150;
+  const city = aqiData.location?.city ?? 'your city';
 
   if (query.includes('diy') || query.includes('purifier') || query.includes('filter') || query.includes('hack')) {
     return buildDiyHacksResponse(city, currentAqi, pm25);
   }
 
-  if (query.includes('child') || query.includes('kid') || query.includes('school')
-      || query.includes('toddler') || query.includes('asthma')) {
+  if (
+    query.includes('child') ||
+    query.includes('kid') ||
+    query.includes('school') ||
+    query.includes('toddler') ||
+    query.includes('asthma')
+  ) {
     return buildPediatricResponse(currentAqi, aqiData);
   }
 
@@ -160,8 +165,13 @@ function generateExpertFallbackResponse(message, profile, aqiData) {
     return buildVentilationResponse();
   }
 
-  if (query.includes('commute') || query.includes('routine') || query.includes('walk')
-      || query.includes('exercise') || query.includes('jog')) {
+  if (
+    query.includes('commute') ||
+    query.includes('routine') ||
+    query.includes('walk') ||
+    query.includes('exercise') ||
+    query.includes('jog')
+  ) {
     return buildRoutineResponse();
   }
 
@@ -175,7 +185,7 @@ function generateExpertFallbackResponse(message, profile, aqiData) {
  * @returns {string}
  */
 function buildDiyHacksResponse(city, aqi, pm25) {
-  const cigarettesAvoided = Math.round(pm25 * 0.65 * 15 / 22);
+  const cigarettesAvoided = Math.round((pm25 * 0.65 * 15) / 22);
   return `### 🛠️ Low-Cost DIY Air Purification & IAQ Hacks for ${city}
 
 When outdoor AQI is at **${aqi}**, outdoor PM2.5 infiltrates into homes at rates between 60% and 85% if left unsealed. Here is the highest-impact, scientifically validated DIY solution:
